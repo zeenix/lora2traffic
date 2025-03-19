@@ -3,13 +3,17 @@
 #![no_std]
 #![no_main]
 
+#[path = "../common.rs"]
+mod common;
 #[path = "../iv.rs"]
 mod iv;
 
+use common::Signal;
 use defmt::info;
 use embassy_executor::Spawner;
 use embassy_stm32::bind_interrupts;
-use embassy_stm32::gpio::{Level, Output, Pin, Speed};
+use embassy_stm32::exti::ExtiInput;
+use embassy_stm32::gpio::{Level, Output, Pin, Pull, Speed};
 use embassy_stm32::spi::Spi;
 use embassy_stm32::time::Hertz;
 use embassy_time::Delay;
@@ -19,8 +23,6 @@ use lora_phy::{mod_params::*, sx126x};
 use {defmt_rtt as _, panic_probe as _};
 
 use self::iv::{InterruptHandler, Stm32wlInterfaceVariant, SubghzSpiDevice};
-
-const LORA_FREQUENCY_IN_HZ: u32 = 434_000_000; // Top of the EU RF band range
 
 bind_interrupts!(struct Irqs{
     SUBGHZ_RADIO => InterruptHandler;
@@ -48,6 +50,8 @@ async fn main(_spawner: Spawner) {
     }
     let p = embassy_stm32::init(config);
 
+    let mut button = ExtiInput::new(p.PA0, p.EXTI0, Pull::Up);
+
     // Set CTRL1 and CTRL3 for high-power transmission, while CTRL2 acts as an RF switch between tx and rx
     let _ctrl1 = Output::new(p.PC4.degrade(), Level::Low, Speed::High);
     let ctrl2 = Output::new(p.PC5.degrade(), Level::High, Speed::High);
@@ -65,14 +69,16 @@ async fn main(_spawner: Spawner) {
         rx_boost: false,
     };
     let iv = Stm32wlInterfaceVariant::new(Irqs, None, Some(ctrl2)).unwrap();
-    let mut lora = LoRa::new(Sx126x::new(spi, iv, config), false, Delay).await.unwrap();
+    let mut lora = LoRa::new(Sx126x::new(spi, iv, config), false, Delay)
+        .await
+        .unwrap();
 
     let mdltn_params = {
         match lora.create_modulation_params(
             SpreadingFactor::_10,
             Bandwidth::_250KHz,
             CodingRate::_4_8,
-            LORA_FREQUENCY_IN_HZ,
+            common::LORA_FREQUENCY_IN_HZ,
         ) {
             Ok(mp) => mp,
             Err(err) => {
@@ -91,31 +97,52 @@ async fn main(_spawner: Spawner) {
             }
         }
     };
-    let buffer = [0x01, 0x02, 0x03];
 
-    match lora
-        .prepare_for_tx(&mdltn_params, &mut tx_pkt_params, 20, &buffer)
-        .await
-    {
-        Ok(()) => {}
-        Err(err) => {
-            info!("Radio error = {}", err);
-            return;
-        }
-    };
+    let mut signal = Signal::Red;
+    loop {
+        button.wait_for_falling_edge().await;
+        info!("Button pressed");
+        button.wait_for_rising_edge().await;
+        info!("Button released");
 
-    match lora.tx().await {
-        Ok(()) => {
-            info!("TX DONE");
-        }
-        Err(err) => {
-            info!("Radio error = {}", err);
-            return;
-        }
-    };
+        let buffer = [common::HEADER, signal as u8, common::FOOTER];
 
-    match lora.sleep(false).await {
-        Ok(()) => info!("Sleep successful"),
-        Err(err) => info!("Sleep unsuccessful = {}", err),
+        match lora
+            .prepare_for_tx(&mdltn_params, &mut tx_pkt_params, 20, &buffer)
+            .await
+        {
+            Ok(()) => {}
+            Err(err) => {
+                info!("Radio error = {}", err);
+                return;
+            }
+        };
+
+        match lora.tx().await {
+            Ok(()) => {
+                info!("TX DONE");
+            }
+            Err(err) => {
+                info!("Radio error = {}", err);
+                return;
+            }
+        };
+
+        match lora.sleep(false).await {
+            Ok(()) => info!("Sleep successful"),
+            Err(err) => info!("Sleep unsuccessful = {}", err),
+        }
+
+        signal.rotate();
+    }
+}
+
+impl Signal {
+    pub fn rotate(&mut self) {
+        *self = match self {
+            Self::Red => Self::Yellow,
+            Self::Yellow => Self::Green,
+            Self::Green => Self::Red,
+        };
     }
 }

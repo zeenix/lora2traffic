@@ -3,10 +3,12 @@
 #![no_std]
 #![no_main]
 
+#[path = "../common.rs"]
+mod common;
 #[path = "../iv.rs"]
 mod iv;
 
-use defmt::{warn, info};
+use defmt::{info, warn};
 use embassy_executor::Spawner;
 use embassy_stm32::bind_interrupts;
 use embassy_stm32::gpio::{Level, Output, Pin, Speed};
@@ -19,8 +21,7 @@ use lora_phy::{LoRa, RxMode};
 use {defmt_rtt as _, panic_probe as _};
 
 use self::iv::{InterruptHandler, Stm32wlInterfaceVariant, SubghzSpiDevice};
-
-const LORA_FREQUENCY_IN_HZ: u32 = 434_000_000; // Top of the EU RF band range
+use common::Signal;
 
 bind_interrupts!(struct Irqs{
     SUBGHZ_RADIO => InterruptHandler;
@@ -53,6 +54,10 @@ async fn main(_spawner: Spawner) {
     let ctrl2 = Output::new(p.PC5.degrade(), Level::High, Speed::High);
     let _ctrl3 = Output::new(p.PC3.degrade(), Level::High, Speed::High);
 
+    let mut red = Output::new(p.PC6.degrade(), Level::Low, Speed::High); // Pin 12 on the board.
+    let mut yellow = Output::new(p.PC0.degrade(), Level::Low, Speed::High); // Pin 14 on the board.
+    let mut green = Output::new(p.PA8.degrade(), Level::Low, Speed::High); // Pin 16 on the board.
+
     let spi = Spi::new_subghz(p.SUBGHZSPI, p.DMA1_CH1, p.DMA1_CH2);
     let spi = SubghzSpiDevice(spi);
 
@@ -65,7 +70,9 @@ async fn main(_spawner: Spawner) {
         rx_boost: false,
     };
     let iv = Stm32wlInterfaceVariant::new(Irqs, None, Some(ctrl2)).unwrap();
-    let mut lora = LoRa::new(Sx126x::new(spi, iv, config), false, Delay).await.unwrap();
+    let mut lora = LoRa::new(Sx126x::new(spi, iv, config), false, Delay)
+        .await
+        .unwrap();
 
     let mut debug_indicator = Output::new(p.PB9, Level::Low, Speed::Low);
     let mut start_indicator = Output::new(p.PB15, Level::Low, Speed::Low);
@@ -74,14 +81,12 @@ async fn main(_spawner: Spawner) {
     Timer::after_secs(5).await;
     start_indicator.set_low();
 
-    let mut receiving_buffer = [00u8; 100];
-
     let mdltn_params = {
         match lora.create_modulation_params(
             SpreadingFactor::_10,
             Bandwidth::_250KHz,
             CodingRate::_4_8,
-            LORA_FREQUENCY_IN_HZ,
+            common::LORA_FREQUENCY_IN_HZ,
         ) {
             Ok(mp) => mp,
             Err(err) => {
@@ -90,48 +95,87 @@ async fn main(_spawner: Spawner) {
             }
         }
     };
+    let mut buffer = [00u8; 100];
 
-    let rx_pkt_params = {
-        match lora.create_rx_packet_params(4, false, receiving_buffer.len() as u8, true, false, &mdltn_params) {
-            Ok(pp) => pp,
+    loop {
+        info!("......................LOOPING......................................");
+
+        let rx_pkt_params = {
+            match lora.create_rx_packet_params(
+                4,
+                false,
+                buffer.len() as u8,
+                true,
+                false,
+                &mdltn_params,
+            ) {
+                Ok(pp) => pp,
+                Err(err) => {
+                    warn!("Radio error = {}", err);
+                    return;
+                }
+            }
+        };
+        match lora
+            .prepare_for_rx(RxMode::Continuous, &mdltn_params, &rx_pkt_params)
+            .await
+        {
+            Ok(()) => {}
             Err(err) => {
                 warn!("Radio error = {}", err);
                 return;
             }
-        }
-    };
-
-    match lora
-        .prepare_for_rx(RxMode::Continuous, &mdltn_params, &rx_pkt_params)
-        .await
-    {
-        Ok(()) => {}
-        Err(err) => {
-            warn!("Radio error = {}", err);
-            return;
-        }
-    };
-
-    loop {
-        info!("......................LOOPING......................................");
-        receiving_buffer = [00u8; 100];
-        match lora.rx(&rx_pkt_params, &mut receiving_buffer).await {
+        };
+        let signal_byte = match lora.rx(&rx_pkt_params, &mut buffer).await {
             Ok((received_len, _rx_pkt_status)) => {
                 info!("......................rx received something......................................");
                 if (received_len == 3)
-                    && (receiving_buffer[0] == 0x01u8)
-                    && (receiving_buffer[1] == 0x02u8)
-                    && (receiving_buffer[2] == 0x03u8)
+                    && (buffer[0] == common::HEADER)
+                    && (buffer[2] == common::FOOTER)
                 {
                     info!("rx successful");
-                    debug_indicator.set_high();
-                    Timer::after_secs(5).await;
-                    debug_indicator.set_low();
+                    buffer[1]
                 } else {
                     info!("rx unknown packet");
+
+                    continue;
                 }
             }
-            Err(err) => warn!("rx unsuccessful = {}", err),
+            Err(err) => {
+                warn!("rx unsuccessful = {}", err);
+
+                continue;
+            }
+        };
+
+        match Signal::from_u8(signal_byte) {
+            Some(Signal::Red) => {
+                red.set_low();
+                yellow.set_high();
+                green.set_high();
+            }
+            Some(Signal::Yellow) => {
+                red.set_high();
+                yellow.set_low();
+                green.set_high();
+            }
+            Some(Signal::Green) => {
+                red.set_high();
+                yellow.set_high();
+                green.set_low();
+            }
+            None => info!("rx unknown signal"),
+        }
+    }
+}
+
+impl Signal {
+    pub fn from_u8(byte: u8) -> Option<Self> {
+        match byte {
+            b'r' => Some(Self::Red),
+            b'y' => Some(Self::Yellow),
+            b'g' => Some(Self::Green),
+            _ => None,
         }
     }
 }
