@@ -78,12 +78,6 @@ async fn main(_spawner: Spawner) {
         .await
         .unwrap();
 
-    let mut start_indicator = Output::new(p.PB15, Level::Low, Speed::Low);
-
-    start_indicator.set_high();
-    Timer::after_secs(5).await;
-    start_indicator.set_low();
-
     let mdltn_params = {
         match lora.create_modulation_params(
             SpreadingFactor::_10,
