@@ -58,7 +58,6 @@ async fn main(_spawner: Spawner) {
         p.PC6.degrade(), // Pin 12 on the board.
         p.PC0.degrade(), // Pin 14 on the board.
         p.PA8.degrade(), // Pin 16 on the board.
-        Signal::default(),
     )
     .await;
 
@@ -159,12 +158,13 @@ struct SignalControl {
 }
 
 impl SignalControl {
-    async fn new(red: AnyPin, yellow: AnyPin, green: AnyPin, init_state: Signal) -> Self {
+    async fn new(red: AnyPin, yellow: AnyPin, green: AnyPin) -> Self {
+        let state = Signal::default();
         let mut control = Self {
             red: Output::new(red, Level::Low, Speed::High),
             yellow: Output::new(yellow, Level::Low, Speed::High),
             green: Output::new(green, Level::Low, Speed::High),
-            state: init_state,
+            state,
         };
 
         // Startup checks.
@@ -175,8 +175,8 @@ impl SignalControl {
             Timer::after(embassy_time::Duration::from_secs(1)).await;
         }
 
-        // Reset to initial state.
-        control.set(init_state);
+        // Set the initial state.
+        control.set(state);
 
         control
     }
