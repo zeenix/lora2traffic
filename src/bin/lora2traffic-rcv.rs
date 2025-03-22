@@ -11,7 +11,7 @@ mod iv;
 use defmt::{info, warn};
 use embassy_executor::Spawner;
 use embassy_stm32::bind_interrupts;
-use embassy_stm32::gpio::{Level, Output, Pin, Speed};
+use embassy_stm32::gpio::{AnyPin, Level, Output, Pin, Speed};
 use embassy_stm32::spi::Spi;
 use embassy_stm32::time::Hertz;
 use embassy_time::{Delay, Timer};
@@ -55,9 +55,9 @@ async fn main(_spawner: Spawner) {
     let _ctrl3 = Output::new(p.PC3.degrade(), Level::High, Speed::High);
 
     let mut signal_control = SignalControl::new(
-        Output::new(p.PC6.degrade(), Level::Low, Speed::High), // Pin 12 on the board.
-        Output::new(p.PC0.degrade(), Level::Low, Speed::High), // Pin 14 on the board.
-        Output::new(p.PA8.degrade(), Level::Low, Speed::High), // Pin 16 on the board.
+        p.PC6.degrade(), // Pin 12 on the board.
+        p.PC0.degrade(), // Pin 14 on the board.
+        p.PA8.degrade(), // Pin 16 on the board.
         Signal::Red,
     )
     .await;
@@ -161,16 +161,11 @@ struct SignalControl {
 }
 
 impl SignalControl {
-    async fn new(
-        red: Output<'static>,
-        yellow: Output<'static>,
-        green: Output<'static>,
-        init_state: Signal,
-    ) -> Self {
+    async fn new(red: AnyPin, yellow: AnyPin, green: AnyPin, init_state: Signal) -> Self {
         let mut control = Self {
-            red,
-            yellow,
-            green,
+            red: Output::new(red, Level::Low, Speed::High),
+            yellow: Output::new(yellow, Level::Low, Speed::High),
+            green: Output::new(green, Level::Low, Speed::High),
             state: init_state,
         };
 
