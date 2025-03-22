@@ -95,8 +95,6 @@ async fn main(_spawner: Spawner) {
     let mut buffer = [00u8; 100];
 
     loop {
-        info!("......................LOOPING......................................");
-
         let rx_pkt_params = {
             match lora.create_rx_packet_params(
                 4,
@@ -125,7 +123,7 @@ async fn main(_spawner: Spawner) {
         };
         let signal_byte = match lora.rx(&rx_pkt_params, &mut buffer).await {
             Ok((received_len, _rx_pkt_status)) => {
-                info!("......................rx received something......................................");
+                info!("rx received something");
                 if (received_len == 3)
                     && (buffer[0] == common::HEADER)
                     && (buffer[2] == common::FOOTER)
