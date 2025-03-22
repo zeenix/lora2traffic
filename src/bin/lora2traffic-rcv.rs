@@ -58,7 +58,7 @@ async fn main(_spawner: Spawner) {
         p.PC6.degrade(), // Pin 12 on the board.
         p.PC0.degrade(), // Pin 14 on the board.
         p.PA8.degrade(), // Pin 16 on the board.
-        Signal::Red,
+        Signal::default(),
     )
     .await;
 
@@ -200,6 +200,11 @@ impl SignalControl {
                 self.yellow.set_high();
                 self.green.set_low();
             }
+            Signal::Off => {
+                self.red.set_high();
+                self.yellow.set_high();
+                self.green.set_high();
+            }
         }
     }
 }
@@ -210,6 +215,7 @@ impl Signal {
             b'r' => Some(Self::Red),
             b'y' => Some(Self::Yellow),
             b'g' => Some(Self::Green),
+            b'o' => Some(Self::Off),
             _ => None,
         }
     }

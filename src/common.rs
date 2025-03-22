@@ -6,6 +6,7 @@ pub(crate) enum Signal {
     Red = b'r',
     Yellow = b'y',
     Green = b'g',
+    Off = b'o',
 }
 
 impl Signal {
@@ -13,8 +14,15 @@ impl Signal {
         *self = match self {
             Self::Red => Self::Yellow,
             Self::Yellow => Self::Green,
-            Self::Green => Self::Red,
+            Self::Green => Self::Off,
+            Self::Off => Self::Red,
         };
+    }
+}
+
+impl Default for Signal {
+    fn default() -> Self {
+        Self::Off
     }
 }
 

@@ -98,7 +98,7 @@ async fn main(_spawner: Spawner) {
         }
     };
 
-    let mut signal = Signal::Red;
+    let mut signal = Signal::default();
     loop {
         button.wait_for_falling_edge().await;
         info!("Button pressed");
