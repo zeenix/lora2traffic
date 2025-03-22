@@ -136,13 +136,3 @@ async fn main(_spawner: Spawner) {
         signal.rotate();
     }
 }
-
-impl Signal {
-    pub fn rotate(&mut self) {
-        *self = match self {
-            Self::Red => Self::Yellow,
-            Self::Yellow => Self::Green,
-            Self::Green => Self::Red,
-        };
-    }
-}

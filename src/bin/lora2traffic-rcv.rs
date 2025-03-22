@@ -54,9 +54,13 @@ async fn main(_spawner: Spawner) {
     let ctrl2 = Output::new(p.PC5.degrade(), Level::High, Speed::High);
     let _ctrl3 = Output::new(p.PC3.degrade(), Level::High, Speed::High);
 
-    let mut red = Output::new(p.PC6.degrade(), Level::Low, Speed::High); // Pin 12 on the board.
-    let mut yellow = Output::new(p.PC0.degrade(), Level::Low, Speed::High); // Pin 14 on the board.
-    let mut green = Output::new(p.PA8.degrade(), Level::Low, Speed::High); // Pin 16 on the board.
+    let mut signal_control = SignalControl::new(
+        Output::new(p.PC6.degrade(), Level::Low, Speed::High), // Pin 12 on the board.
+        Output::new(p.PC0.degrade(), Level::Low, Speed::High), // Pin 14 on the board.
+        Output::new(p.PA8.degrade(), Level::Low, Speed::High), // Pin 16 on the board.
+        Signal::Red,
+    )
+    .await;
 
     let spi = Spi::new_subghz(p.SUBGHZSPI, p.DMA1_CH1, p.DMA1_CH2);
     let spi = SubghzSpiDevice(spi);
@@ -74,7 +78,6 @@ async fn main(_spawner: Spawner) {
         .await
         .unwrap();
 
-    let mut debug_indicator = Output::new(p.PB9, Level::Low, Speed::Low);
     let mut start_indicator = Output::new(p.PB15, Level::Low, Speed::Low);
 
     start_indicator.set_high();
@@ -149,22 +152,67 @@ async fn main(_spawner: Spawner) {
         };
 
         match Signal::from_u8(signal_byte) {
-            Some(Signal::Red) => {
-                red.set_low();
-                yellow.set_high();
-                green.set_high();
-            }
-            Some(Signal::Yellow) => {
-                red.set_high();
-                yellow.set_low();
-                green.set_high();
-            }
-            Some(Signal::Green) => {
-                red.set_high();
-                yellow.set_high();
-                green.set_low();
-            }
+            Some(signal) => signal_control.set(signal),
             None => info!("rx unknown signal"),
+        }
+    }
+}
+
+struct SignalControl {
+    red: Output<'static>,
+    yellow: Output<'static>,
+    green: Output<'static>,
+
+    state: Signal,
+}
+
+impl SignalControl {
+    async fn new(
+        red: Output<'static>,
+        yellow: Output<'static>,
+        green: Output<'static>,
+        init_state: Signal,
+    ) -> Self {
+        let mut control = Self {
+            red,
+            yellow,
+            green,
+            state: init_state,
+        };
+
+        // Startup checks.
+        let mut signal = Signal::Red;
+        for _ in 0..3 {
+            control.set(signal);
+            signal.rotate();
+            Timer::after(embassy_time::Duration::from_secs(1)).await;
+        }
+
+        // Reset to initial state.
+        control.set(init_state);
+
+        control
+    }
+
+    fn set(&mut self, signal: Signal) {
+        info!("Setting signal = {:?}", signal);
+        self.state = signal;
+        match signal {
+            Signal::Red => {
+                self.red.set_low();
+                self.yellow.set_high();
+                self.green.set_high();
+            }
+            Signal::Yellow => {
+                self.red.set_high();
+                self.yellow.set_low();
+                self.green.set_high();
+            }
+            Signal::Green => {
+                self.red.set_high();
+                self.yellow.set_high();
+                self.green.set_low();
+            }
         }
     }
 }
