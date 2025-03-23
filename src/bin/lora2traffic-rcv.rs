@@ -70,7 +70,7 @@ async fn main(_spawner: Spawner) {
         },
         tcxo_ctrl: Some(TcxoCtrlVoltage::Ctrl1V7),
         use_dcdc: true,
-        rx_boost: false,
+        rx_boost: true,
     };
     let iv = Stm32wlInterfaceVariant::new(Irqs, None, Some(ctrl2)).unwrap();
     let mut lora = LoRa::new(Sx126x::new(spi, iv, config), false, Delay)
