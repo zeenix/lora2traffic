@@ -72,8 +72,11 @@ async fn main(_spawner: Spawner) {
             }
         };
         let signal_byte = match lora.rx(&rx_pkt_params, &mut buffer).await {
-            Ok((received_len, _rx_pkt_status)) => {
-                info!("rx received something");
+            Ok((received_len, rx_pkt_status)) => {
+                info!(
+                    "rx received something. SNR = {}, RSSI = {}",
+                    rx_pkt_status.snr, rx_pkt_status.rssi
+                );
                 if (received_len == 3)
                     && (buffer[0] == common::HEADER)
                     && (buffer[2] == common::FOOTER)
