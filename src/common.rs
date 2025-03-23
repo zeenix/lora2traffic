@@ -97,7 +97,7 @@ pub(crate) async fn create_lora(
     let mdltn_params = {
         match lora.create_modulation_params(
             SpreadingFactor::_12,
-            Bandwidth::_125KHz,
+            Bandwidth::_62KHz,
             CodingRate::_4_8,
             LORA_FREQUENCY_IN_HZ,
         ) {
