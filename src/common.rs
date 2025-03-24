@@ -66,7 +66,9 @@ pub(crate) fn create_stm32_config() -> embassy_stm32::Config {
 }
 
 pub(crate) async fn create_lora(
+    ctrl1: Output<'static>,
     ctrl2: Output<'static>,
+    ctrl3: Output<'static>,
     spi: Spi<'static, Async>,
 ) -> (
     LoRa<
@@ -81,15 +83,21 @@ pub(crate) async fn create_lora(
 ) {
     let spi = SubghzSpiDevice(spi);
 
+    let use_high_power_pa = true;
     let config = sx126x::Config {
-        chip: Stm32wl {
-            use_high_power_pa: true,
-        },
+        chip: Stm32wl { use_high_power_pa },
         tcxo_ctrl: Some(TcxoCtrlVoltage::Ctrl1V7),
         use_dcdc: true,
         rx_boost: true,
     };
-    let iv = Stm32wlInterfaceVariant::new(Irqs, None, Some(ctrl2)).unwrap();
+    let iv = Stm32wlInterfaceVariant::new(
+        Irqs,
+        use_high_power_pa,
+        Some(ctrl1),
+        Some(ctrl2),
+        Some(ctrl3),
+    )
+    .unwrap();
     let mut lora = LoRa::new(Sx126x::new(spi, iv, config), false, Delay)
         .await
         .unwrap();

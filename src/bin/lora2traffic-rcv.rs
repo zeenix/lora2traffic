@@ -30,9 +30,9 @@ async fn main(_spawner: Spawner) {
     let p = embassy_stm32::init(config);
 
     // Set CTRL1 and CTRL3 for high-power transmission, while CTRL2 acts as an RF switch between tx and rx
-    let _ctrl1 = Output::new(p.PC4.degrade(), Level::Low, Speed::High);
-    let ctrl2 = Output::new(p.PC5.degrade(), Level::High, Speed::High);
-    let _ctrl3 = Output::new(p.PC3.degrade(), Level::High, Speed::High);
+    let ctrl1 = Output::new(p.PC4.degrade(), Level::Low, Speed::High);
+    let ctrl2 = Output::new(p.PC5.degrade(), Level::Low, Speed::High);
+    let ctrl3 = Output::new(p.PC3.degrade(), Level::High, Speed::High);
 
     let mut signal_control = SignalControl::new(
         p.PC6.degrade(), // Pin 12 on the board.
@@ -41,7 +41,7 @@ async fn main(_spawner: Spawner) {
     )
     .await;
     let spi = Spi::new_subghz(p.SUBGHZSPI, p.DMA1_CH1, p.DMA1_CH2);
-    let (mut lora, mdltn_params) = common::create_lora(ctrl2, spi).await;
+    let (mut lora, mdltn_params) = common::create_lora(ctrl1, ctrl2, ctrl3, spi).await;
     let mut buffer = [00u8; 100];
 
     loop {

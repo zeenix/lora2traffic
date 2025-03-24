@@ -31,12 +31,12 @@ async fn main(_spawner: Spawner) {
     let mut button = ExtiInput::new(p.PA0, p.EXTI0, Pull::Up);
 
     // Set CTRL1 and CTRL3 for high-power transmission, while CTRL2 acts as an RF switch between tx and rx
-    let _ctrl1 = Output::new(p.PC4.degrade(), Level::Low, Speed::High);
-    let ctrl2 = Output::new(p.PC5.degrade(), Level::High, Speed::High);
-    let _ctrl3 = Output::new(p.PC3.degrade(), Level::High, Speed::High);
+    let ctrl1 = Output::new(p.PC4.degrade(), Level::Low, Speed::High);
+    let ctrl2 = Output::new(p.PC5.degrade(), Level::Low, Speed::High);
+    let ctrl3 = Output::new(p.PC3.degrade(), Level::High, Speed::High);
 
     let spi = Spi::new_subghz(p.SUBGHZSPI, p.DMA1_CH1, p.DMA1_CH2);
-    let (mut lora, mdltn_params) = common::create_lora(ctrl2, spi).await;
+    let (mut lora, mdltn_params) = common::create_lora(ctrl1, ctrl2, ctrl3, spi).await;
 
     let mut tx_pkt_params = {
         match lora.create_tx_packet_params(4, false, true, false, &mdltn_params) {
