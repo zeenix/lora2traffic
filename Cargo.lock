@@ -631,7 +631,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "lora-stm32wl-examples"
+name = "lora2traffic"
 version = "0.1.0"
 dependencies = [
  "cortex-m",
