@@ -43,6 +43,11 @@ cortex-m-rt = "0.7.0"
 embedded-hal = { version = "1.0.0" }
 embedded-hal-async = { version = "1.0.0" }
 embedded-hal-bus = { version = "0.2.0", features = ["async"] }
+futures-util = { version = "0.3.31", features = [
+    "async-await",
+    "alloc",
+], default-features = false }
+embedded-alloc = "0.5.1"
 
 [profile.release]
 lto = true

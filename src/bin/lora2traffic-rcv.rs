@@ -24,10 +24,18 @@ bind_interrupts!(struct Irqs{
     SUBGHZ_RADIO => InterruptHandler;
 });
 
+const HEAP_SIZE: usize = 1024;
+static mut HEAP: [u8; HEAP_SIZE] = [0; HEAP_SIZE];
+
+#[global_allocator]
+static ALLOCATOR: embedded_alloc::Heap = embedded_alloc::Heap::empty();
+
 #[embassy_executor::main]
 async fn main(_spawner: Spawner) {
     let config = common::create_stm32_config();
     let p = embassy_stm32::init(config);
+
+    unsafe { ALLOCATOR.init(core::ptr::addr_of_mut!(HEAP) as usize, HEAP_SIZE) }
 
     // Set CTRL1 and CTRL3 for high-power transmission, while CTRL2 acts as an RF switch between tx and rx
     let ctrl1 = Output::new(p.PC4.degrade(), Level::Low, Speed::High);

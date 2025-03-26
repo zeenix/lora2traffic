@@ -3,6 +3,8 @@
 #![no_std]
 #![no_main]
 
+extern crate alloc;
+
 #[path = "../common.rs"]
 mod common;
 #[path = "../iv.rs"]
@@ -15,6 +17,7 @@ use embassy_stm32::bind_interrupts;
 use embassy_stm32::exti::ExtiInput;
 use embassy_stm32::gpio::{Level, Output, Pin, Pull, Speed};
 use embassy_stm32::spi::Spi;
+use futures_util::stream::{self, SelectAll};
 use {defmt_rtt as _, panic_probe as _};
 
 use self::iv::InterruptHandler;
@@ -23,10 +26,18 @@ bind_interrupts!(struct Irqs{
     SUBGHZ_RADIO => InterruptHandler;
 });
 
+const HEAP_SIZE: usize = 1024;
+static mut HEAP: [u8; HEAP_SIZE] = [0; HEAP_SIZE];
+
+#[global_allocator]
+static ALLOCATOR: embedded_alloc::Heap = embedded_alloc::Heap::empty();
+
 #[embassy_executor::main]
 async fn main(_spawner: Spawner) {
     let config = common::create_stm32_config();
     let p = embassy_stm32::init(config);
+
+    unsafe { ALLOCATOR.init(core::ptr::addr_of_mut!(HEAP) as usize, HEAP_SIZE) }
 
     let mut button = ExtiInput::new(p.PA0, p.EXTI0, Pull::Up);
 
@@ -47,6 +58,9 @@ async fn main(_spawner: Spawner) {
             }
         }
     };
+
+    let mut st = SelectAll::new();
+    st.push(stream::empty::<()>());
 
     let mut signal = Signal::default();
     loop {
