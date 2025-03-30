@@ -54,6 +54,7 @@ async fn main(_spawner: Spawner) {
         info!("Button pressed");
         button.wait_for_rising_edge().await;
         info!("Button released");
+        signal.rotate();
 
         let buffer = [common::HEADER, signal as u8, common::FOOTER];
 
@@ -83,6 +84,5 @@ async fn main(_spawner: Spawner) {
             Err(err) => info!("Sleep unsuccessful = {}", err),
         }
 
-        signal.rotate();
     }
 }
