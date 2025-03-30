@@ -29,17 +29,7 @@ async fn main(_spawner: Spawner) {
     let ctrl3 = Output::new(p.PC3.degrade(), Level::High, Speed::High);
 
     let spi = Spi::new_subghz(p.SUBGHZSPI, p.DMA1_CH1, p.DMA1_CH2);
-    let (mut lora, mdltn_params) = create_lora(ctrl1, ctrl2, ctrl3, spi).await;
-
-    let mut tx_pkt_params = {
-        match lora.create_tx_packet_params(4, false, true, false, &mdltn_params) {
-            Ok(pp) => pp,
-            Err(err) => {
-                info!("Radio error = {}", err);
-                return;
-            }
-        }
-    };
+    let mut lora = LoraHw::new(ctrl1, ctrl2, ctrl3, spi).await;
 
     let mut signal = Signal::default();
     indicator.set(signal);
@@ -50,20 +40,9 @@ async fn main(_spawner: Spawner) {
         info!("Button released");
         signal.rotate();
 
-        let buffer = Message::Signal(signal).to_bytes();
+        let msg = Message::Signal(signal);
 
-        match lora
-            .prepare_for_tx(&mdltn_params, &mut tx_pkt_params, 20, &buffer)
-            .await
-        {
-            Ok(()) => {}
-            Err(err) => {
-                info!("Radio error = {}", err);
-                return;
-            }
-        };
-
-        match lora.tx().await {
+        match lora.send(msg).await {
             Ok(()) => {
                 info!("TX DONE");
             }
@@ -72,11 +51,6 @@ async fn main(_spawner: Spawner) {
                 return;
             }
         };
-
-        match lora.sleep(false).await {
-            Ok(()) => info!("Sleep successful"),
-            Err(err) => info!("Sleep unsuccessful = {}", err),
-        }
 
         indicator.set(signal);
     }

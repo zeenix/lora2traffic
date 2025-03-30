@@ -8,7 +8,6 @@ use embassy_executor::Spawner;
 use embassy_stm32::gpio::{AnyPin, Level, Output, Pin, Speed};
 use embassy_stm32::spi::Spi;
 use embassy_time::Timer;
-use lora_phy::RxMode;
 use {defmt_rtt as _, panic_probe as _};
 
 use lora2traffic::*;
@@ -30,53 +29,17 @@ async fn main(_spawner: Spawner) {
     )
     .await;
     let spi = Spi::new_subghz(p.SUBGHZSPI, p.DMA1_CH1, p.DMA1_CH2);
-    let (mut lora, mdltn_params) = create_lora(ctrl1, ctrl2, ctrl3, spi).await;
-    let mut buffer = [00u8; MSG_SIZE];
+    let mut lora = LoraHw::new(ctrl1, ctrl2, ctrl3, spi).await;
 
     loop {
-        let rx_pkt_params = {
-            match lora.create_rx_packet_params(
-                4,
-                false,
-                buffer.len() as u8,
-                true,
-                false,
-                &mdltn_params,
-            ) {
-                Ok(pp) => pp,
-                Err(err) => {
-                    warn!("Radio error = {}", err);
-                    return;
-                }
+        match lora.receive().await {
+            Ok(Message::QuerySignal) => {
+                info!("rx query signal");
+                // TODO: Send the current signal state.
             }
-        };
-        match lora
-            .prepare_for_rx(RxMode::Continuous, &mdltn_params, &rx_pkt_params)
-            .await
-        {
-            Ok(()) => {}
-            Err(err) => {
-                warn!("Radio error = {}", err);
-                return;
-            }
-        };
-        match lora.rx(&rx_pkt_params, &mut buffer).await {
-            Ok((received_len, rx_pkt_status)) => {
-                info!(
-                    "rx received something. SNR = {}, RSSI = {}",
-                    rx_pkt_status.snr, rx_pkt_status.rssi
-                );
-                match Message::from_bytes(&buffer[..received_len as usize]) {
-                    Some(Message::QuerySignal) => {
-                        info!("rx query signal");
-                        // TODO: Send the current signal state.
-                    }
-                    Some(Message::Signal(signal)) => {
-                        info!("rx signal = {:?}", signal);
-                        signal_control.set(signal);
-                    }
-                    None => info!("rx unknown packet"),
-                }
+            Ok(Message::Signal(signal)) => {
+                info!("rx signal = {:?}", signal);
+                signal_control.set(signal);
             }
             Err(err) => {
                 warn!("rx unsuccessful = {}", err);
