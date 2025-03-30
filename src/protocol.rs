@@ -1,3 +1,4 @@
+#[derive(defmt::Format, Clone, Copy)]
 pub enum Message {
     QuerySignal,
     Signal(crate::Signal),
