@@ -13,7 +13,7 @@ use defmt::info;
 use embassy_executor::Spawner;
 use embassy_stm32::bind_interrupts;
 use embassy_stm32::exti::ExtiInput;
-use embassy_stm32::gpio::{Level, Output, Pin, Pull, Speed};
+use embassy_stm32::gpio::{AnyPin, Level, Output, Pin, Pull, Speed};
 use embassy_stm32::spi::Spi;
 use {defmt_rtt as _, panic_probe as _};
 
@@ -29,6 +29,10 @@ async fn main(_spawner: Spawner) {
     let p = embassy_stm32::init(config);
 
     let mut button = ExtiInput::new(p.PA0, p.EXTI0, Pull::Up);
+    let mut indicator = SignalIndicator::new(
+        p.PB11.degrade(), // Red LED
+        p.PB9.degrade(),  // Green LED
+    );
 
     // Set CTRL1 and CTRL3 for high-power transmission, while CTRL2 acts as an RF switch between tx and rx
     let ctrl1 = Output::new(p.PC4.degrade(), Level::Low, Speed::High);
@@ -49,6 +53,7 @@ async fn main(_spawner: Spawner) {
     };
 
     let mut signal = Signal::default();
+    indicator.set(signal);
     loop {
         button.wait_for_falling_edge().await;
         info!("Button pressed");
@@ -84,5 +89,42 @@ async fn main(_spawner: Spawner) {
             Err(err) => info!("Sleep unsuccessful = {}", err),
         }
 
+        indicator.set(signal);
+    }
+}
+
+struct SignalIndicator {
+    red: Output<'static>,
+    green: Output<'static>,
+}
+
+impl SignalIndicator {
+    fn new(red: AnyPin, green: AnyPin) -> Self {
+        Self {
+            red: Output::new(red, Level::High, Speed::Low),
+            green: Output::new(green, Level::High, Speed::Low),
+        }
+    }
+
+    fn set(&mut self, signal: Signal) {
+        match signal {
+            Signal::Red => {
+                self.red.set_high();
+                self.green.set_low();
+            }
+            Signal::Yellow => {
+                // We don't use the blue LED (on PB15) but rather both red and green simultaneously.
+                self.red.set_high();
+                self.green.set_high();
+            }
+            Signal::Green => {
+                self.red.set_low();
+                self.green.set_high();
+            }
+            Signal::Off => {
+                self.red.set_low();
+                self.green.set_low();
+            }
+        }
     }
 }
