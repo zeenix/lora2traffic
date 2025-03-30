@@ -31,7 +31,16 @@ async fn main(_spawner: Spawner) {
     let spi = Spi::new_subghz(p.SUBGHZSPI, p.DMA1_CH1, p.DMA1_CH2);
     let mut lora = LoraHw::new(ctrl1, ctrl2, ctrl3, spi).await;
 
-    let mut signal = Signal::default();
+    // Query the signal state.
+    lora.send(Message::QuerySignal).await.unwrap();
+    let mut signal = match lora.receive().await.unwrap() {
+        Message::Signal(signal) => signal,
+        _ => {
+            info!("No signal received, defaulting to red");
+            Signal::default()
+        }
+    };
+    info!("Initial signal = {:?}", signal);
     indicator.set(signal);
     loop {
         button.wait_for_falling_edge().await;
