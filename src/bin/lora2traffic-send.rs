@@ -51,6 +51,7 @@ async fn main(_spawner: Spawner) {
                 return;
             }
         };
+        lora.sleep().await;
 
         indicator.set(signal);
     }

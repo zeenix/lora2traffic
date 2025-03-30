@@ -126,6 +126,7 @@ impl LoraHw {
     }
 
     pub async fn send(&mut self, msg: Message) -> Result<(), RadioError> {
+        info!("tx message = {:?}", msg);
         let buffer = msg.to_bytes();
 
         let mut tx_pkt_params =
@@ -137,9 +138,14 @@ impl LoraHw {
             .await?;
 
         self.lora.tx().await?;
-
-        self.lora.sleep(false).await?;
+        info!("tx done");
 
         Ok(())
+    }
+
+    pub async fn sleep(&mut self) {
+        if let Err(e) = self.lora.sleep(false).await {
+            warn!("Failed to put radio to sleep: {}", e);
+        }
     }
 }

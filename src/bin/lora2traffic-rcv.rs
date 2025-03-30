@@ -35,17 +35,17 @@ async fn main(_spawner: Spawner) {
         match lora.receive().await {
             Ok(Message::QuerySignal) => {
                 info!("rx query signal");
-                // TODO: Send the current signal state.
+                let signal = signal_control.state;
+                let msg = Message::Signal(signal);
+                if let Err(e) = lora.send(msg).await {
+                    info!("tx failed: {}", e);
+                }
             }
             Ok(Message::Signal(signal)) => {
                 info!("rx signal = {:?}", signal);
                 signal_control.set(signal);
             }
-            Err(err) => {
-                warn!("rx unsuccessful = {}", err);
-
-                continue;
-            }
+            Err(err) => warn!("rx failed: {}", err),
         }
     }
 }
