@@ -7,14 +7,16 @@
 mod common;
 #[path = "../iv.rs"]
 mod iv;
+#[path = "../signal.rs"]
+mod signal;
 
-use common::Signal;
 use defmt::info;
 use embassy_executor::Spawner;
 use embassy_stm32::bind_interrupts;
 use embassy_stm32::exti::ExtiInput;
 use embassy_stm32::gpio::{AnyPin, Level, Output, Pin, Pull, Speed};
 use embassy_stm32::spi::Spi;
+use signal::Signal;
 use {defmt_rtt as _, panic_probe as _};
 
 use self::iv::InterruptHandler;

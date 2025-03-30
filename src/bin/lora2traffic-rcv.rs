@@ -7,6 +7,8 @@
 mod common;
 #[path = "../iv.rs"]
 mod iv;
+#[path = "../signal.rs"]
+mod signal;
 
 use defmt::{info, warn};
 use embassy_executor::Spawner;
@@ -18,7 +20,7 @@ use lora_phy::RxMode;
 use {defmt_rtt as _, panic_probe as _};
 
 use self::iv::InterruptHandler;
-use common::Signal;
+use signal::Signal;
 
 bind_interrupts!(struct Irqs{
     SUBGHZ_RADIO => InterruptHandler;
