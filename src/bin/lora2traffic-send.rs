@@ -50,7 +50,7 @@ async fn main(_spawner: Spawner) {
         info!("Button released");
         signal.rotate();
 
-        let buffer = [HEADER, signal as u8, FOOTER];
+        let buffer = Message::Signal(signal).to_bytes();
 
         match lora
             .prepare_for_tx(&mdltn_params, &mut tx_pkt_params, 20, &buffer)

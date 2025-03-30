@@ -8,13 +8,12 @@ mod lora;
 pub use lora::*;
 mod signal;
 pub use signal::*;
+mod protocol;
+pub use protocol::*;
 
 bind_interrupts!(struct Irqs{
     SUBGHZ_RADIO => InterruptHandler;
 });
-
-pub const HEADER: u8 = 117;
-pub const FOOTER: u8 = 255;
 
 pub fn create_stm32_config() -> embassy_stm32::Config {
     let mut config = embassy_stm32::Config::default();

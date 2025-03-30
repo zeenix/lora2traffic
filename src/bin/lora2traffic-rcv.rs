@@ -60,19 +60,22 @@ async fn main(_spawner: Spawner) {
                 return;
             }
         };
-        let signal_byte = match lora.rx(&rx_pkt_params, &mut buffer).await {
+        match lora.rx(&rx_pkt_params, &mut buffer).await {
             Ok((received_len, rx_pkt_status)) => {
                 info!(
                     "rx received something. SNR = {}, RSSI = {}",
                     rx_pkt_status.snr, rx_pkt_status.rssi
                 );
-                if (received_len == 3) && (buffer[0] == HEADER) && (buffer[2] == FOOTER) {
-                    info!("rx successful");
-                    buffer[1]
-                } else {
-                    info!("rx unknown packet");
-
-                    continue;
+                match Message::from_bytes(&buffer[..received_len as usize]) {
+                    Some(Message::QuerySignal) => {
+                        info!("rx query signal");
+                        // TODO: Send the current signal state.
+                    }
+                    Some(Message::Signal(signal)) => {
+                        info!("rx signal = {:?}", signal);
+                        signal_control.set(signal);
+                    }
+                    None => info!("rx unknown packet"),
                 }
             }
             Err(err) => {
@@ -80,11 +83,6 @@ async fn main(_spawner: Spawner) {
 
                 continue;
             }
-        };
-
-        match Signal::from_u8(signal_byte) {
-            Some(signal) => signal_control.set(signal),
-            None => info!("rx unknown signal"),
         }
     }
 }
