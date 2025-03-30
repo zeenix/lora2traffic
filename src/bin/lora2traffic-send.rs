@@ -7,6 +7,8 @@
 mod common;
 #[path = "../iv.rs"]
 mod iv;
+#[path = "../lora.rs"]
+mod lora;
 #[path = "../signal.rs"]
 mod signal;
 
@@ -42,7 +44,7 @@ async fn main(_spawner: Spawner) {
     let ctrl3 = Output::new(p.PC3.degrade(), Level::High, Speed::High);
 
     let spi = Spi::new_subghz(p.SUBGHZSPI, p.DMA1_CH1, p.DMA1_CH2);
-    let (mut lora, mdltn_params) = common::create_lora(ctrl1, ctrl2, ctrl3, spi).await;
+    let (mut lora, mdltn_params) = lora::create_lora(ctrl1, ctrl2, ctrl3, spi).await;
 
     let mut tx_pkt_params = {
         match lora.create_tx_packet_params(4, false, true, false, &mdltn_params) {
