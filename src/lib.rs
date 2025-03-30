@@ -1,7 +1,22 @@
-pub(crate) const HEADER: u8 = 117;
-pub(crate) const FOOTER: u8 = 255;
+#![no_std]
 
-pub(crate) fn create_stm32_config() -> embassy_stm32::Config {
+use embassy_stm32::bind_interrupts;
+
+mod iv;
+pub use iv::*;
+mod lora;
+pub use lora::*;
+mod signal;
+pub use signal::*;
+
+bind_interrupts!(struct Irqs{
+    SUBGHZ_RADIO => InterruptHandler;
+});
+
+pub const HEADER: u8 = 117;
+pub const FOOTER: u8 = 255;
+
+pub fn create_stm32_config() -> embassy_stm32::Config {
     let mut config = embassy_stm32::Config::default();
     {
         use embassy_stm32::{rcc::*, time::Hertz};

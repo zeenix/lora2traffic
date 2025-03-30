@@ -1,6 +1,6 @@
 #[derive(defmt::Format, Clone, Copy, PartialEq)]
 #[repr(u8)]
-pub(crate) enum Signal {
+pub enum Signal {
     Red = b'r',
     Yellow = b'y',
     Green = b'g',
@@ -15,6 +15,16 @@ impl Signal {
             Self::Green => Self::Off,
             Self::Off => Self::Red,
         };
+    }
+
+    pub fn from_u8(byte: u8) -> Option<Self> {
+        match byte {
+            b'r' => Some(Self::Red),
+            b'y' => Some(Self::Yellow),
+            b'g' => Some(Self::Green),
+            b'o' => Some(Self::Off),
+            _ => None,
+        }
     }
 }
 

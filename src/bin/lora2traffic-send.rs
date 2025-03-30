@@ -3,33 +3,18 @@
 #![no_std]
 #![no_main]
 
-#[path = "../common.rs"]
-mod common;
-#[path = "../iv.rs"]
-mod iv;
-#[path = "../lora.rs"]
-mod lora;
-#[path = "../signal.rs"]
-mod signal;
-
 use defmt::info;
 use embassy_executor::Spawner;
-use embassy_stm32::bind_interrupts;
 use embassy_stm32::exti::ExtiInput;
 use embassy_stm32::gpio::{AnyPin, Level, Output, Pin, Pull, Speed};
 use embassy_stm32::spi::Spi;
-use signal::Signal;
 use {defmt_rtt as _, panic_probe as _};
 
-use self::iv::InterruptHandler;
-
-bind_interrupts!(struct Irqs{
-    SUBGHZ_RADIO => InterruptHandler;
-});
+use lora2traffic::*;
 
 #[embassy_executor::main]
 async fn main(_spawner: Spawner) {
-    let config = common::create_stm32_config();
+    let config = create_stm32_config();
     let p = embassy_stm32::init(config);
 
     let mut button = ExtiInput::new(p.PA0, p.EXTI0, Pull::Up);
@@ -44,7 +29,7 @@ async fn main(_spawner: Spawner) {
     let ctrl3 = Output::new(p.PC3.degrade(), Level::High, Speed::High);
 
     let spi = Spi::new_subghz(p.SUBGHZSPI, p.DMA1_CH1, p.DMA1_CH2);
-    let (mut lora, mdltn_params) = lora::create_lora(ctrl1, ctrl2, ctrl3, spi).await;
+    let (mut lora, mdltn_params) = create_lora(ctrl1, ctrl2, ctrl3, spi).await;
 
     let mut tx_pkt_params = {
         match lora.create_tx_packet_params(4, false, true, false, &mdltn_params) {
@@ -65,7 +50,7 @@ async fn main(_spawner: Spawner) {
         info!("Button released");
         signal.rotate();
 
-        let buffer = [common::HEADER, signal as u8, common::FOOTER];
+        let buffer = [HEADER, signal as u8, FOOTER];
 
         match lora
             .prepare_for_tx(&mdltn_params, &mut tx_pkt_params, 20, &buffer)

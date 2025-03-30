@@ -4,6 +4,17 @@ name = "lora2traffic"
 version = "0.1.0"
 license = "MIT OR Apache-2.0"
 
+[lib]
+name = "lora2traffic"
+path = "src/lib.rs"
+
+[[bin]]
+name = "lora2traffic-send"
+path = "src/bin/lora2traffic-send.rs"
+[[bin]]
+name = "lora2traffic-rcv"
+path = "src/bin/lora2traffic-rcv.rs"
+
 [dependencies]
 # Change stm32wle5jc to your chip name, if necessary. Also update .cargo/config.toml
 embassy-stm32 = { version = "0.2.0", features = [

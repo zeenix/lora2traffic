@@ -3,34 +3,19 @@
 #![no_std]
 #![no_main]
 
-#[path = "../common.rs"]
-mod common;
-#[path = "../iv.rs"]
-mod iv;
-#[path = "../lora.rs"]
-mod lora;
-#[path = "../signal.rs"]
-mod signal;
-
 use defmt::{info, warn};
 use embassy_executor::Spawner;
-use embassy_stm32::bind_interrupts;
 use embassy_stm32::gpio::{AnyPin, Level, Output, Pin, Speed};
 use embassy_stm32::spi::Spi;
 use embassy_time::Timer;
 use lora_phy::RxMode;
 use {defmt_rtt as _, panic_probe as _};
 
-use self::iv::InterruptHandler;
-use signal::Signal;
-
-bind_interrupts!(struct Irqs{
-    SUBGHZ_RADIO => InterruptHandler;
-});
+use lora2traffic::*;
 
 #[embassy_executor::main]
 async fn main(_spawner: Spawner) {
-    let config = common::create_stm32_config();
+    let config = create_stm32_config();
     let p = embassy_stm32::init(config);
 
     // Set CTRL1 and CTRL3 for high-power transmission, while CTRL2 acts as an RF switch between tx and rx
@@ -45,7 +30,7 @@ async fn main(_spawner: Spawner) {
     )
     .await;
     let spi = Spi::new_subghz(p.SUBGHZSPI, p.DMA1_CH1, p.DMA1_CH2);
-    let (mut lora, mdltn_params) = lora::create_lora(ctrl1, ctrl2, ctrl3, spi).await;
+    let (mut lora, mdltn_params) = create_lora(ctrl1, ctrl2, ctrl3, spi).await;
     let mut buffer = [00u8; 100];
 
     loop {
@@ -81,10 +66,7 @@ async fn main(_spawner: Spawner) {
                     "rx received something. SNR = {}, RSSI = {}",
                     rx_pkt_status.snr, rx_pkt_status.rssi
                 );
-                if (received_len == 3)
-                    && (buffer[0] == common::HEADER)
-                    && (buffer[2] == common::FOOTER)
-                {
+                if (received_len == 3) && (buffer[0] == HEADER) && (buffer[2] == FOOTER) {
                     info!("rx successful");
                     buffer[1]
                 } else {
@@ -163,18 +145,6 @@ impl SignalControl {
                 self.yellow.set_high();
                 self.green.set_high();
             }
-        }
-    }
-}
-
-impl Signal {
-    pub fn from_u8(byte: u8) -> Option<Self> {
-        match byte {
-            b'r' => Some(Self::Red),
-            b'y' => Some(Self::Yellow),
-            b'g' => Some(Self::Green),
-            b'o' => Some(Self::Off),
-            _ => None,
         }
     }
 }

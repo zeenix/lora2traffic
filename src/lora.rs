@@ -11,9 +11,9 @@ use crate::{
     Irqs,
 };
 
-pub(crate) const LORA_FREQUENCY_IN_HZ: u32 = 434_000_000; // Top of the EU RF band range
+pub const LORA_FREQUENCY_IN_HZ: u32 = 434_000_000; // Top of the EU RF band range
 
-pub(crate) async fn create_lora(
+pub async fn create_lora(
     ctrl1: Output<'static>,
     ctrl2: Output<'static>,
     ctrl3: Output<'static>,
