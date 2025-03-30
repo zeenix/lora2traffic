@@ -32,6 +32,6 @@ impl Message {
     }
 }
 
-const MSG_SIZE: usize = 4;
+pub const MSG_SIZE: usize = 4;
 const HEADER: u8 = 117;
 const FOOTER: u8 = 255;
