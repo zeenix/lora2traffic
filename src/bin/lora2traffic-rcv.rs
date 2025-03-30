@@ -44,6 +44,11 @@ async fn main(_spawner: Spawner) {
             Ok(Message::Signal(signal)) => {
                 info!("rx signal = {:?}", signal);
                 signal_control.set(signal);
+                // ACK
+                let msg = Message::Signal(signal);
+                if let Err(e) = lora.send(msg).await {
+                    info!("tx failed: {}", e);
+                }
             }
             Err(err) => warn!("rx failed: {}", err),
         }

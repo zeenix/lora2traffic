@@ -3,7 +3,7 @@
 #![no_std]
 #![no_main]
 
-use defmt::info;
+use defmt::{info, warn};
 use embassy_executor::Spawner;
 use embassy_stm32::exti::ExtiInput;
 use embassy_stm32::gpio::{AnyPin, Level, Output, Pin, Pull, Speed};
@@ -60,6 +60,16 @@ async fn main(_spawner: Spawner) {
                 return;
             }
         };
+        // Receive the ACK
+        match lora.receive().await {
+            Ok(Message::Signal(sig)) if sig == signal => info!("ACK received"),
+            Ok(Message::Signal(sig)) => {
+                warn!("ACK received with different signal: {:?}", sig);
+                signal = sig;
+            }
+            Ok(Message::QuerySignal) => warn!("Unexpected query message received"),
+            Err(e) => warn!("RX error = {}", e),
+        }
         lora.sleep().await;
 
         indicator.set(signal);
