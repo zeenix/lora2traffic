@@ -5,11 +5,11 @@
 
 use defmt::{info, warn};
 use embassy_executor::Spawner;
-use embassy_futures::select;
+use embassy_futures::select::{self, Either};
 use embassy_stm32::exti::ExtiInput;
 use embassy_stm32::gpio::{AnyPin, Level, Output, Pin, Pull, Speed};
 use embassy_stm32::spi::Spi;
-use embassy_time::Timer;
+use embassy_time::{Duration, Timer};
 use {defmt_rtt as _, panic_probe as _};
 
 use lora2traffic::*;
@@ -57,24 +57,41 @@ async fn main(_spawner: Spawner) {
 
         let msg = Message::Signal(signal);
 
-        match lora.send(msg).await {
-            Ok(()) => {
-                info!("TX DONE");
+        for _ in 1..=3 {
+            match lora.send(msg).await {
+                Ok(()) => {
+                    info!("TX DONE");
+                }
+                Err(err) => {
+                    info!("Radio error = {}", err);
+                    return;
+                }
+            };
+            // Receive the ACK
+            match select::select(Timer::after(RECEIVE_TIMEOUT), lora.receive()).await {
+                Either::First(_) => {
+                    info!("Timeout waiting for ACK");
+                    // Probably didn't receive our signal, so we'll try again.
+                    continue;
+                }
+                Either::Second(Err(e)) => {
+                    warn!("RX error = {}", e);
+
+                    // Try again.
+                    continue;
+                }
+                Either::Second(Ok(Message::Signal(sig))) if sig == signal => info!("ACK received"),
+                Either::Second(Ok(Message::Signal(sig))) => {
+                    warn!("ACK received with different signal: {:?}", sig);
+                    signal = sig;
+                }
+                Either::Second(Ok(Message::QuerySignal)) => {
+                    warn!("Unexpected query message received")
+                }
             }
-            Err(err) => {
-                info!("Radio error = {}", err);
-                return;
-            }
-        };
-        // Receive the ACK
-        match lora.receive().await {
-            Ok(Message::Signal(sig)) if sig == signal => info!("ACK received"),
-            Ok(Message::Signal(sig)) => {
-                warn!("ACK received with different signal: {:?}", sig);
-                signal = sig;
-            }
-            Ok(Message::QuerySignal) => warn!("Unexpected query message received"),
-            Err(e) => warn!("RX error = {}", e),
+
+            // Reaching here means we've received an ACK.
+            break;
         }
         lora.sleep().await;
 
@@ -123,3 +140,5 @@ impl SignalIndicator {
         }
     }
 }
+
+const RECEIVE_TIMEOUT: Duration = Duration::from_secs(10);
