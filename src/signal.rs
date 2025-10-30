@@ -26,6 +26,15 @@ impl Signal {
             _ => None,
         }
     }
+
+    pub fn duration(&self) -> u64 {
+        match self {
+            Self::Red => 30,
+            Self::Yellow => 5,
+            Self::Green => 30,
+            Self::Off => 15,
+        }
+    }
 }
 
 impl Default for Signal {

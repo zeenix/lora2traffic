@@ -5,9 +5,11 @@
 
 use defmt::{info, warn};
 use embassy_executor::Spawner;
+use embassy_futures::select;
 use embassy_stm32::exti::ExtiInput;
 use embassy_stm32::gpio::{AnyPin, Level, Output, Pin, Pull, Speed};
 use embassy_stm32::spi::Spi;
+use embassy_time::Timer;
 use {defmt_rtt as _, panic_probe as _};
 
 use lora2traffic::*;
@@ -43,10 +45,14 @@ async fn main(_spawner: Spawner) {
     info!("Initial signal = {:?}", signal);
     indicator.set(signal);
     loop {
-        button.wait_for_falling_edge().await;
-        info!("Button pressed");
-        button.wait_for_rising_edge().await;
-        info!("Button released");
+        let duration = signal.duration();
+        // Wait for either timeout or button press.
+        select::select(
+            Timer::after_secs(duration),
+            wait_for_button_press(&mut button),
+        )
+        .await;
+
         signal.rotate();
 
         let msg = Message::Signal(signal);
@@ -74,6 +80,12 @@ async fn main(_spawner: Spawner) {
 
         indicator.set(signal);
     }
+}
+
+async fn wait_for_button_press(button: &mut ExtiInput<'_>) {
+    button.wait_for_falling_edge().await;
+    info!("Button pressed");
+    button.wait_for_rising_edge().await;
 }
 
 struct SignalIndicator {
